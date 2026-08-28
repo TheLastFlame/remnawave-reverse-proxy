@@ -2271,7 +2271,7 @@ load_module() {
     local module_type="${2:-modules}"
     local module_file="${DIR_REMNAWAVE}${module_type}/${module_name}.sh"
     local module_url="https://raw.githubusercontent.com/${SCRIPT_REPO}/refs/heads/${SCRIPT_BRANCH}/src/${module_type}/${module_name}.sh"
-    local force_update="${3:-false}"
+    local force_update="${3:-true}"
 
     if [ "$force_update" = "true" ] || [ ! -f "$module_file" ]; then
         mkdir -p "${DIR_REMNAWAVE}${module_type}"
@@ -2323,18 +2323,18 @@ load_module() {
 }
 
 # Module loaders (wrappers for load_module)
-load_install_panel_node_module() { load_module "install_panel_node" "nginx" "${1:-false}"; }
-load_install_panel_module() { load_module "install_panel" "nginx" "${1:-false}"; }
-load_install_node_module() { load_module "install_node" "nginx" "${1:-false}"; }
-load_add_node_module() { load_module "add_node" "modules" "${1:-false}"; }
-load_manage_panel_module() { load_module "manage_panel" "modules" "${1:-false}"; }
-load_api_module() { load_module "remnawave_api" "api" "${1:-false}"; }
-load_caddy_module() { load_module "install_panel_node" "caddy" "${1:-false}"; }
-load_caddy_panel_module() { load_module "install_panel" "caddy" "${1:-false}"; }
-load_caddy_node_module() { load_module "install_node" "caddy" "${1:-false}"; }
-load_warp_module() { load_module "warp" "modules" "${1:-false}"; }
-load_ipv6_module() { load_module "ipv6" "modules" "${1:-false}"; }
-load_selfsteal_templates_module() { load_module "selfsteal_templates" "modules" "${1:-false}"; }
+load_install_panel_node_module() { load_module "install_panel_node" "nginx" "${1:-true}"; }
+load_install_panel_module() { load_module "install_panel" "nginx" "${1:-true}"; }
+load_install_node_module() { load_module "install_node" "nginx" "${1:-true}"; }
+load_add_node_module() { load_module "add_node" "modules" "${1:-true}"; }
+load_manage_panel_module() { load_module "manage_panel" "modules" "${1:-true}"; }
+load_api_module() { load_module "remnawave_api" "api" "${1:-true}"; }
+load_caddy_module() { load_module "install_panel_node" "caddy" "${1:-true}"; }
+load_caddy_panel_module() { load_module "install_panel" "caddy" "${1:-true}"; }
+load_caddy_node_module() { load_module "install_node" "caddy" "${1:-true}"; }
+load_warp_module() { load_module "warp" "modules" "${1:-true}"; }
+load_ipv6_module() { load_module "ipv6" "modules" "${1:-true}"; }
+load_selfsteal_templates_module() { load_module "selfsteal_templates" "modules" "${1:-true}"; }
 
 log_entry
 
