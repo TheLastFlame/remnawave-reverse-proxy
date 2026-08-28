@@ -85,6 +85,56 @@ run_remnawave_cli() {
     exec 1>&3 2>&4
 }
 
+migrate_panel_to_v3() {
+    local dir="$1"
+    if [ ! -f "$dir/docker-compose.yml" ]; then
+        return 0
+    fi
+
+    local modified=false
+
+    # 1. Migrate docker-compose images
+    if grep -q "image: remnawave/backend:2" "$dir/docker-compose.yml"; then
+        sed -i 's|image: remnawave/backend:2|image: remnawave/backend:3|g' "$dir/docker-compose.yml"
+        modified=true
+    fi
+    if grep -q "image: postgres:18.3" "$dir/docker-compose.yml"; then
+        sed -i 's|image: postgres:18.3|image: postgres:17|g' "$dir/docker-compose.yml"
+        modified=true
+    fi
+    if grep -q "image: valkey/valkey:9.0.3-alpine" "$dir/docker-compose.yml"; then
+        sed -i 's|image: valkey/valkey:9.0.3-alpine|image: valkey/valkey:8-alpine|g' "$dir/docker-compose.yml"
+        modified=true
+    fi
+
+    # 2. Migrate .env variables (JWT_AUTH_SECRET -> APP_SECRET)
+    if [ -f "$dir/.env" ]; then
+        if ! grep -q "^APP_SECRET=" "$dir/.env" && grep -q "^JWT_AUTH_SECRET=" "$dir/.env"; then
+            local jwt_val
+            jwt_val=$(grep "^JWT_AUTH_SECRET=" "$dir/.env" | cut -d'=' -f2-)
+            echo "APP_SECRET=$jwt_val" >> "$dir/.env"
+            modified=true
+        fi
+    fi
+
+    # 3. Migrate nginx.conf (add gzip compression if missing)
+    if [ -f "$dir/nginx.conf" ] && ! grep -q "gzip on;" "$dir/nginx.conf"; then
+        sed -i '/ssl_session_cache/a \\n# Gzip Compression\ngzip on;\ngzip_vary on;\ngzip_proxied any;\ngzip_comp_level 6;\ngzip_min_length 1024;\ngzip_types application/javascript application/json application/manifest+json application/xml application/wasm font/opentype font/eot font/otf font/ttf image/svg+xml text/css text/javascript text/plain text/xml;' "$dir/nginx.conf"
+        modified=true
+    fi
+
+    # 4. Migrate Caddyfile (add encode if missing)
+    if [ -f "$dir/Caddyfile" ] && ! grep -q "encode" "$dir/Caddyfile"; then
+        sed -i 's|https://{\$PANEL_DOMAIN} {|https://{\$PANEL_DOMAIN} {\n    encode|g' "$dir/Caddyfile"
+        sed -i 's|https://{\$SUB_DOMAIN} {|https://{\$SUB_DOMAIN} {\n    encode|g' "$dir/Caddyfile"
+        modified=true
+    fi
+
+    if [ "$modified" = true ]; then
+        echo -e "${COLOR_GREEN}Migrated configuration to Remnawave v3 standards.${COLOR_RESET}"
+    fi
+}
+
 start_panel_node() {
     local dir=""
     if [ -d "/opt/remnawave" ]; then
@@ -98,7 +148,7 @@ start_panel_node() {
 
     cd "$dir" || { echo -e "${COLOR_RED}${LANG[CHANGE_DIR_FAILED]} $dir${COLOR_RESET}"; exit 1; }
 
-    if docker ps -q --filter "ancestor=remnawave/backend:latest" | grep -q . || docker ps -q --filter "ancestor=remnawave/node:latest" | grep -q . || docker ps -q --filter "ancestor=remnawave/backend:2" | grep -q .; then
+    if docker ps -q --filter "ancestor=remnawave/backend:latest" | grep -q . || docker ps -q --filter "ancestor=remnawave/backend:3" | grep -q . || docker ps -q --filter "ancestor=remnawave/node:latest" | grep -q . || docker ps -q --filter "ancestor=remnawave/backend:2" | grep -q .; then
         echo -e "${COLOR_GREEN}${LANG[PANEL_RUNNING]}${COLOR_RESET}"
     else
         echo -e "${COLOR_YELLOW}${LANG[STARTING_PANEL_NODE]}...${COLOR_RESET}"
@@ -121,7 +171,7 @@ stop_panel_node() {
     fi
 
     cd "$dir" || { echo -e "${COLOR_RED}${LANG[CHANGE_DIR_FAILED]} $dir${COLOR_RESET}"; exit 1; }
-    if ! docker ps -q --filter "ancestor=remnawave/backend:latest" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/node:latest" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/backend:2" | grep -q .; then
+    if ! docker ps -q --filter "ancestor=remnawave/backend:latest" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/backend:3" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/node:latest" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/backend:2" | grep -q .; then
         echo -e "${COLOR_GREEN}${LANG[PANEL_STOPPED]}${COLOR_RESET}"
     else
         echo -e "${COLOR_YELLOW}${LANG[STOPPING_REMNAWAVE]}...${COLOR_RESET}"
@@ -146,6 +196,8 @@ update_panel_node() {
     cd "$dir" || { echo -e "${COLOR_RED}${LANG[CHANGE_DIR_FAILED]} $dir${COLOR_RESET}"; exit 1; }
     echo -e "${COLOR_YELLOW}${LANG[UPDATING]}${COLOR_RESET}"
     sleep 1
+
+    migrate_panel_to_v3 "$dir"
 
     images_before=$(docker compose config --images | sort -u)
     if [ -n "$images_before" ]; then
@@ -196,7 +248,7 @@ view_logs() {
 
     cd "$dir" || { echo -e "${COLOR_RED}${LANG[CHANGE_DIR_FAILED]} $dir${COLOR_RESET}"; exit 1; }
 
-    if ! docker ps -q --filter "ancestor=remnawave/backend:latest" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/node:latest" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/backend:2" | grep -q .; then
+    if ! docker ps -q --filter "ancestor=remnawave/backend:latest" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/backend:3" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/node:latest" | grep -q . && ! docker ps -q --filter "ancestor=remnawave/backend:2" | grep -q .; then
         echo -e "${COLOR_RED}${LANG[CONTAINER_NOT_RUNNING]}${COLOR_RESET}"
         exit 1
     fi

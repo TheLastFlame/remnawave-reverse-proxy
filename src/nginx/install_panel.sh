@@ -42,8 +42,7 @@ install_panel_nginx() {
     METRICS_USER=$(generate_user)
     METRICS_PASS=$(generate_user)
 
-    JWT_AUTH_SECRET=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 64)
-    JWT_API_TOKENS_SECRET=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 64)
+    APP_SECRET=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 64)
 
     cat > .env <<EOL
 ### APP ###
@@ -53,7 +52,7 @@ METRICS_PORT=3001
 ### API ###
 # Possible values: max (start instances on all cores), number (start instances on number of cores), -1 (start instances on all cores - 1)
 # !!! Do not set this value more than physical cores count in your machine !!!
-# Review documentation: https://remna.st/docs/install/environment-variables#scaling-api
+# Review documentation: https://docs.rw/install/environment-variables#scaling-api
 API_INSTANCES=1
 
 ### DATABASE ###
@@ -66,9 +65,8 @@ REDIS_SOCKET=/var/run/valkey/valkey.sock
 #REDIS_HOST=
 #REDIS_PORT=
 
-### JWT ###
-JWT_AUTH_SECRET=$JWT_AUTH_SECRET
-JWT_API_TOKENS_SECRET=$JWT_API_TOKENS_SECRET
+### Secrets ###
+APP_SECRET=$APP_SECRET
 
 # Set the session idle timeout in the panel to avoid daily logins.
 # Value in hours: 12–168
@@ -98,15 +96,10 @@ FRONT_END_DOMAIN=$PANEL_DOMAIN
 ### SUBSCRIPTION PUBLIC DOMAIN ###
 ### DOMAIN, WITHOUT HTTP/HTTPS, DO NOT ADD / AT THE END ###
 ### Used in "profile-web-page-url" response header and in UI/API ###
-### Review documentation: https://remna.st/docs/install/environment-variables#domains
+### Review documentation: https://docs.rw/install/environment-variables#domains
 SUB_PUBLIC_DOMAIN=$SUB_DOMAIN
 
 ### If CUSTOM_SUB_PREFIX is set in @remnawave/subscription-page, append the same path to SUB_PUBLIC_DOMAIN. Example: SUB_PUBLIC_DOMAIN=sub-page.example.com/sub ###
-
-### SWAGGER ###
-SWAGGER_PATH=/docs
-SCALAR_PATH=/scalar
-IS_DOCS_ENABLED=false
 
 ### PROMETHEUS ###
 ### Metrics are available at http://127.0.0.1:METRICS_PORT/metrics
@@ -170,7 +163,7 @@ x-env: &env
 
 services:
   remnawave-db:
-    image: postgres:18.3
+    image: postgres:17
     container_name: 'remnawave-db'
     hostname: remnawave-db
     <<: [*common, *logging, *env, *networks]
@@ -190,7 +183,7 @@ services:
       retries: 3
 
   remnawave:
-    image: remnawave/backend:2
+    image: remnawave/backend:3
     container_name: remnawave
     hostname: remnawave
     <<: [*common, *logging, *env, *networks]
@@ -212,7 +205,7 @@ services:
         condition: service_healthy
 
   remnawave-redis:
-    image: valkey/valkey:9.0.3-alpine
+    image: valkey/valkey:8-alpine
     container_name: remnawave-redis
     hostname: remnawave-redis
     <<: [*common, *logging, *networks]
@@ -352,6 +345,28 @@ ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDS
 ssl_prefer_server_ciphers on;
 ssl_session_timeout 1d;
 ssl_session_cache shared:MozSSL:10m;
+
+# Gzip Compression
+gzip on;
+gzip_vary on;
+gzip_proxied any;
+gzip_comp_level 6;
+gzip_min_length 1024;
+gzip_types
+    application/javascript
+    application/json
+    application/manifest+json
+    application/xml
+    application/wasm
+    font/opentype
+    font/eot
+    font/otf
+    font/ttf
+    image/svg+xml
+    text/css
+    text/javascript
+    text/plain
+    text/xml;
 
 server {
     server_name $PANEL_DOMAIN;

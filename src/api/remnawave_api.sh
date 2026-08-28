@@ -129,7 +129,7 @@ get_public_key() {
         echo -e "${COLOR_RED}${LANG[ERROR_PUBLIC_KEY]}${COLOR_RESET}"
     fi
 
-    local pubkey=$(echo "$api_response" | jq -r '.response.pubKey')
+    local pubkey=$(echo "$api_response" | jq -r '.response.secretKey // .response.pubKey // empty')
     if [ -z "$pubkey" ]; then
         echo -e "${COLOR_RED}${LANG[ERROR_EXTRACT_PUBLIC_KEY]}${COLOR_RESET}"
     fi
@@ -264,8 +264,8 @@ delete_config_profile() {
     fi
 
     local delete_response=$(make_api_request "DELETE" "http://$domain_url/api/config-profiles/$profile_uuid" "$token")
-    if [ -z "$delete_response" ] || ! echo "$delete_response" | jq -e '.' > /dev/null 2>&1; then
-        echo -e "${COLOR_RED}${LANG[ERROR_DELETE_PROFILE]}${COLOR_RESET}"
+    if [ -n "$delete_response" ] && echo "$delete_response" | jq -e '.errorCode // .statusCode' > /dev/null 2>&1; then
+        echo -e "${COLOR_RED}${LANG[ERROR_DELETE_PROFILE]}: $delete_response${COLOR_RESET}"
         return 1
     fi
 
