@@ -105,7 +105,15 @@ migrate_panel_to_v3() {
         modified=true
     fi
 
-    # Ensure valkey-socket is defined in volumes if used
+    # Ensure remnawave-redis mounts valkey-socket volume
+    if grep -q "remnawave-redis:" "$dir/docker-compose.yml"; then
+        if ! awk '/remnawave-redis:/,/healthcheck:/' "$dir/docker-compose.yml" | grep -q "valkey-socket:"; then
+            sed -i '/remnawave-redis:/a \    volumes:\n      - valkey-socket:/var/run/valkey' "$dir/docker-compose.yml"
+            modified=true
+        fi
+    fi
+
+    # Ensure valkey-socket is defined in root volumes if used
     if grep -q "valkey-socket:" "$dir/docker-compose.yml" && ! grep -E -A 8 "^volumes:" "$dir/docker-compose.yml" | grep -q "valkey-socket:"; then
         cat >> "$dir/docker-compose.yml" <<EOL
   valkey-socket:
