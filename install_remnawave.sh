@@ -1655,6 +1655,10 @@ get_certificates() {
 
     printf "${COLOR_YELLOW}${LANG[GENERATING_CERTS]}${COLOR_RESET}\n" "$DOMAIN"
 
+    if [ -d "/etc/letsencrypt/live/$BASE_DOMAIN" ] && [ ! -f "/etc/letsencrypt/live/$BASE_DOMAIN/fullchain.pem" ]; then
+        rm -rf "/etc/letsencrypt/live/$BASE_DOMAIN"
+    fi
+
     case $CERT_METHOD in
         1)
             # Cloudflare API (DNS-01 support wildcard)
@@ -1680,6 +1684,9 @@ EOL
                 --dns-cloudflare \
                 --dns-cloudflare-credentials ~/.secrets/certbot/cloudflare.ini \
                 --dns-cloudflare-propagation-seconds 60 \
+                --cert-name "$BASE_DOMAIN" \
+                --keep-until-expiring \
+                --expand \
                 -d "$BASE_DOMAIN" \
                 -d "$WILDCARD_DOMAIN" \
                 --email "$CLOUDFLARE_EMAIL" \
@@ -1694,6 +1701,9 @@ EOL
 
             certbot certonly \
                 --standalone \
+                --cert-name "$DOMAIN" \
+                --keep-until-expiring \
+                --expand \
                 -d "$DOMAIN" \
                 --email "$LETSENCRYPT_EMAIL" \
                 --agree-tos \
