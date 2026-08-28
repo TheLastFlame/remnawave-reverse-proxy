@@ -93,34 +93,60 @@ migrate_panel_to_v3() {
 
     local modified=false
 
-    # 1. Migrate docker-compose images
-    if grep -q "image: remnawave/backend:2" "$dir/docker-compose.yml"; then
+    # 1. Auto-repair docker-compose.yml formatting, v3 backend image, and valkey socket volume
+    if command -v python3 &> /dev/null; then
+        python3 -c "
+import os
+p = os.path.join('$dir', 'docker-compose.yml')
+if os.path.exists(p):
+    with open(p, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    
+    new_lines = []
+    in_redis = False
+    redis_has_volumes = False
+    has_root_valkey_socket = False
+    in_root_volumes = False
+    
+    for line in lines:
+        if 'image: remnawave/backend:2' in line:
+            line = line.replace('image: remnawave/backend:2', 'image: remnawave/backend:3')
+        if line.startswith('        test: ['):
+            line = '      test: [' + line[15:]
+        if line.strip().startswith('remnawave-redis:'):
+            in_redis = True
+        elif in_redis and line and line[0] not in (' ', '\t', '\n', '#'):
+            in_redis = False
+        elif in_redis and line.strip() and not line.startswith('  ') and not line.startswith(' ' * 4):
+            in_redis = False
+            
+        if in_redis and 'valkey-socket:' in line:
+            redis_has_volumes = True
+        if in_redis and line.strip().startswith('command:'):
+            if not redis_has_volumes:
+                new_lines.append('    volumes:\n')
+                new_lines.append('      - valkey-socket:/var/run/valkey\n')
+                redis_has_volumes = True
+                
+        if line.startswith('volumes:'):
+            in_root_volumes = True
+        if in_root_volumes and 'valkey-socket:' in line:
+            has_root_valkey_socket = True
+        new_lines.append(line)
+        
+    if in_root_volumes and not has_root_valkey_socket:
+        new_lines.append('  valkey-socket:\n')
+        new_lines.append('    name: valkey-socket\n')
+        new_lines.append('    driver: local\n')
+        new_lines.append('    external: false\n')
+        
+    with open(p, 'w', encoding='utf-8') as f:
+        f.writelines(new_lines)
+"
+        modified=true
+    else
         sed -i -E 's|image: remnawave/backend:2.*|image: remnawave/backend:3|g' "$dir/docker-compose.yml"
-        modified=true
-    fi
-
-    # Fix known eGames healthcheck indentation error in docker-compose.yml
-    if grep -qE '^        test: \[' "$dir/docker-compose.yml"; then
         sed -i 's|^        test: \[|      test: \[|g' "$dir/docker-compose.yml"
-        modified=true
-    fi
-
-    # Ensure remnawave-redis mounts valkey-socket volume
-    if grep -q "remnawave-redis:" "$dir/docker-compose.yml"; then
-        if ! awk '/remnawave-redis:/,/healthcheck:/' "$dir/docker-compose.yml" | grep -q "valkey-socket:"; then
-            sed -i '/remnawave-redis:/a \    volumes:\n      - valkey-socket:/var/run/valkey' "$dir/docker-compose.yml"
-            modified=true
-        fi
-    fi
-
-    # Ensure valkey-socket is defined in root volumes if used
-    if grep -q "valkey-socket:" "$dir/docker-compose.yml" && ! grep -E -A 8 "^volumes:" "$dir/docker-compose.yml" | grep -q "valkey-socket:"; then
-        cat >> "$dir/docker-compose.yml" <<EOL
-  valkey-socket:
-    name: valkey-socket
-    driver: local
-    external: false
-EOL
         modified=true
     fi
 
