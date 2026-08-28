@@ -95,15 +95,32 @@ migrate_panel_to_v3() {
 
     # 1. Migrate docker-compose images
     if grep -q "image: remnawave/backend:2" "$dir/docker-compose.yml"; then
-        sed -i 's|image: remnawave/backend:2|image: remnawave/backend:3|g' "$dir/docker-compose.yml"
+        sed -i -E 's|image: remnawave/backend:2.*|image: remnawave/backend:3|g' "$dir/docker-compose.yml"
         modified=true
     fi
-    if grep -q "image: postgres:18.3" "$dir/docker-compose.yml"; then
-        sed -i 's|image: postgres:18.3|image: postgres:17|g' "$dir/docker-compose.yml"
+    if grep -qE "image: postgres:18\." "$dir/docker-compose.yml"; then
+        sed -i -E 's|image: postgres:18\..*|image: postgres:17|g' "$dir/docker-compose.yml"
         modified=true
     fi
-    if grep -q "image: valkey/valkey:9.0.3-alpine" "$dir/docker-compose.yml"; then
-        sed -i 's|image: valkey/valkey:9.0.3-alpine|image: valkey/valkey:8-alpine|g' "$dir/docker-compose.yml"
+    if grep -qE "image: valkey/valkey:9\." "$dir/docker-compose.yml"; then
+        sed -i -E 's|image: valkey/valkey:9\..*|image: valkey/valkey:8-alpine|g' "$dir/docker-compose.yml"
+        modified=true
+    fi
+
+    # Fix known eGames healthcheck indentation error in docker-compose.yml
+    if grep -qE '^        test: \[' "$dir/docker-compose.yml"; then
+        sed -i 's|^        test: \[|      test: \[|g' "$dir/docker-compose.yml"
+        modified=true
+    fi
+
+    # Ensure valkey-socket is defined in volumes if used
+    if grep -q "valkey-socket:" "$dir/docker-compose.yml" && ! grep -E -A 8 "^volumes:" "$dir/docker-compose.yml" | grep -q "valkey-socket:"; then
+        cat >> "$dir/docker-compose.yml" <<EOL
+  valkey-socket:
+    name: valkey-socket
+    driver: local
+    external: false
+EOL
         modified=true
     fi
 
