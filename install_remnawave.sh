@@ -1469,7 +1469,8 @@ install_packages() {
 
 extract_domain() {
     local SUBDOMAIN=$1
-    echo "$SUBDOMAIN" | awk -F'.' '{if (NF > 2) {print $(NF-1)"."$NF} else {print $0}}'
+    local clean_domain=$(echo "$SUBDOMAIN" | sed -e 's/^\*\.//' -e 's/^\*//')
+    echo "$clean_domain" | awk -F'.' '{if (NF > 2) {print $(NF-1)"."$NF} else {print $0}}'
 }
 
 check_domain() {
@@ -1971,6 +1972,7 @@ EOL
 
 generate_new_certificates() {
     reading "${LANG[CERT_GENERATE_PROMPT]}" NEW_DOMAIN
+    NEW_DOMAIN=$(echo "$NEW_DOMAIN" | sed -e 's/^\*\.//' -e 's/^\*//')
 
     echo -e "${COLOR_YELLOW}${LANG[CERT_METHOD_PROMPT]}${COLOR_RESET}"
     echo -e ""
