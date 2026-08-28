@@ -98,14 +98,6 @@ migrate_panel_to_v3() {
         sed -i -E 's|image: remnawave/backend:2.*|image: remnawave/backend:3|g' "$dir/docker-compose.yml"
         modified=true
     fi
-    if grep -qE "image: postgres:18\." "$dir/docker-compose.yml"; then
-        sed -i -E 's|image: postgres:18\..*|image: postgres:17|g' "$dir/docker-compose.yml"
-        modified=true
-    fi
-    if grep -qE "image: valkey/valkey:9\." "$dir/docker-compose.yml"; then
-        sed -i -E 's|image: valkey/valkey:9\..*|image: valkey/valkey:8-alpine|g' "$dir/docker-compose.yml"
-        modified=true
-    fi
 
     # Fix known eGames healthcheck indentation error in docker-compose.yml
     if grep -qE '^        test: \[' "$dir/docker-compose.yml"; then
