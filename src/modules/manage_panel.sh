@@ -199,39 +199,18 @@ update_panel_node() {
 
     migrate_panel_to_v3 "$dir"
 
-    images_before=$(docker compose config --images | sort -u)
-    if [ -n "$images_before" ]; then
-        before=$(echo "$images_before" | xargs -I {} docker images -q {} | sort -u)
-    else
-        before=""
-    fi
-
-    tmpfile=$(mktemp)
-    docker compose pull > "$tmpfile" 2>&1 &
-    spinner $! "${LANG[WAITING]}"
-    pull_output=$(cat "$tmpfile")
-    rm -f "$tmpfile"
-
-    images_after=$(docker compose config --images | sort -u)
-    if [ -n "$images_after" ]; then
-        after=$(echo "$images_after" | xargs -I {} docker images -q {} | sort -u)
-    else
-        after=""
-    fi
-
-    if [ "$before" != "$after" ] || echo "$pull_output" | grep -q "Pull complete"; then
-        echo -e ""
-	echo -e "${COLOR_YELLOW}${LANG[IMAGES_DETECTED]}${COLOR_RESET}"
-        docker compose down > /dev/null 2>&1 &
-        spinner $! "${LANG[WAITING]}"
-        sleep 5
-        docker compose up -d > /dev/null 2>&1 &
-        spinner $! "${LANG[WAITING]}"
+    echo -e "${COLOR_YELLOW}${LANG[IMAGES_DETECTED]}${COLOR_RESET}"
+    if docker compose pull; then
+        echo -e "${COLOR_YELLOW}${LANG[STOPPING_REMNAWAVE]}...${COLOR_RESET}"
+        docker compose down
+        sleep 2
+        echo -e "${COLOR_YELLOW}${LANG[STARTING_PANEL_NODE]}...${COLOR_RESET}"
+        docker compose up -d
         sleep 1
         docker image prune -f > /dev/null 2>&1
         echo -e "${COLOR_GREEN}${LANG[UPDATE_SUCCESS1]}${COLOR_RESET}"
     else
-        echo -e "${COLOR_YELLOW}${LANG[NO_UPDATE]}${COLOR_RESET}"
+        echo -e "${COLOR_RED}Failed to pull images. Please check /opt/remnawave/docker-compose.yml syntax.${COLOR_RESET}"
     fi
 }
 
